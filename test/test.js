@@ -42,7 +42,7 @@ describe("MinterLoans", function () {
     const minterLoans = await MinterLoans.deploy(hub.address, usdt.address, priceBroadcaster.address);
     await minterLoans.deployed();
 
-    await (await minterLoans.connect(priceBroadcaster).updatePrice(100)).wait();
+    await (await minterLoans.connect(priceBroadcaster).updatePrice(1000000)).wait();
 
     await (await hub.connect(borrower).approve(minterLoans.address, toWei("1000000"))).wait();
     await (await usdt.connect(lender).approve(minterLoans.address, toWei("1000000"))).wait();
@@ -81,7 +81,7 @@ describe("MinterLoans", function () {
 
     // liquidate
     {
-      await (await minterLoans.connect(priceBroadcaster).updatePrice(75)).wait();
+      await (await minterLoans.connect(priceBroadcaster).updatePrice(750000)).wait();
 
       let beforeHUB = await hub.balanceOf(lender.address);
       await (await minterLoans.connect(lender).liquidate(2)).wait();

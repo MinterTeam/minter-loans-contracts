@@ -22,7 +22,7 @@ async function main() {
     const minterLoans = await MinterLoans.deploy(hub.address, usdt.address, (await ethers.getSigners())[0].address);
     await minterLoans.deployed();
 
-    await (await minterLoans.updatePrice(100)).wait();
+    await (await minterLoans.updatePrice(100000)).wait();
 
     console.log("MinterLoans deployed to:", minterLoans.address);
 }

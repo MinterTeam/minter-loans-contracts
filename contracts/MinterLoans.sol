@@ -42,11 +42,17 @@ contract MinterLoans is IMinterLoans, Ownable {
     Lend[] lends;
 
     uint256 public price;
+    uint256 public priceDenom = 10000;
+
+    uint256 public priceTrustWindowBlocks = 1000;
+
     uint256 public lastPriceUpdateHeight;
     uint256 public minimalLoanableAmount = 100 ether;
     uint256 public minCollateralRate = 75;
     uint256 public baseCollateralRate = 200;
+    uint256 public rateDenom = 100;
     uint256 public interestPerMonth = 1;
+    uint256 public interestDenom = 100;
     uint256 public maxBorrowingPeriod = 365 days;
 
     address priceBroadcaster;
@@ -178,11 +184,11 @@ contract MinterLoans is IMinterLoans, Ownable {
     }
 
     function calculateLoanAmount(uint256 hubAmount) public view returns(uint256) {
-        return (hubAmount * price) * 100 / baseCollateralRate;
+        return hubAmount * price * rateDenom / baseCollateralRate / priceDenom;
     }
 
     function calculateCollateralAmount(uint256 usdtAmount) public view returns(uint256) {
-        return (usdtAmount / price) * baseCollateralRate / 100; // todo
+        return usdtAmount * priceDenom * baseCollateralRate / price / rateDenom;
     }
 
     function calculateRepayAmount(Loan memory loan) public view returns(uint256) {
@@ -191,7 +197,7 @@ contract MinterLoans is IMinterLoans, Ownable {
             monthCount = 1;
         }
 
-        return loan.borrowedAmount + (loan.borrowedAmount * monthCount * interestPerMonth / 100);
+        return loan.borrowedAmount + (loan.borrowedAmount * monthCount * interestPerMonth / interestDenom);
     }
 
     function canBeLiquidated(Loan memory loan) public view returns(bool) {
@@ -201,7 +207,7 @@ contract MinterLoans is IMinterLoans, Ownable {
 
         uint256 neededCollateral = calculateCollateralAmount(calculateRepayAmount(loan));
 
-        return loan.collateralAmount * 100 / neededCollateral < minCollateralRate;
+        return loan.collateralAmount * rateDenom / neededCollateral < minCollateralRate;
     }
 
     function getLoan(uint256 _id) override external view returns(address borrower, address lender, uint256 collateralAmount, uint256 borrowedAmount, uint256 borrowingTime, bool closed) {
@@ -213,7 +219,7 @@ contract MinterLoans is IMinterLoans, Ownable {
     }
 
     modifier checkActualPrice() {
-        require(block.number - lastPriceUpdateHeight < 1000, "Price was not updated for too long");
+        require(block.number - lastPriceUpdateHeight < priceTrustWindowBlocks, "Price was not updated for too long");
         _;
     }
 }
