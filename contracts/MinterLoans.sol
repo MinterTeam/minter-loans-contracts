@@ -42,18 +42,19 @@ contract MinterLoans is IMinterLoans, Ownable {
     Lend[] lends;
 
     uint256 public price;
-    uint256 public priceDenom = 10000;
-
-    uint256 public priceTrustWindowBlocks = 1000;
-
     uint256 public lastPriceUpdateHeight;
-    uint256 public minimalLoanableAmount = 100 ether;
-    uint256 public minCollateralRate = 75;
-    uint256 public baseCollateralRate = 200;
-    uint256 public rateDenom = 100;
-    uint256 public interestPerMonth = 1;
-    uint256 public interestDenom = 100;
-    uint256 public maxBorrowingPeriod = 365 days;
+    uint256 constant public priceDenom = 10000;
+    uint256 constant public priceTrustWindowBlocks = 1000;
+
+    uint256 constant public minimalLoanableAmount = 100 ether;
+    uint256 constant public maximalLoanableAmount = 10000 ether;
+
+    uint256 constant public minCollateralRate = 75;
+    uint256 constant public baseCollateralRate = 200;
+    uint256 constant public rateDenom = 100;
+    uint256 constant public interestPerMonth = 1;
+    uint256 constant public interestDenom = 100;
+    uint256 constant public maxBorrowingPeriod = 365 days;
 
     address priceBroadcaster;
 
@@ -124,6 +125,7 @@ contract MinterLoans is IMinterLoans, Ownable {
 
     function lend(uint256 _loanableAmount) override external {
         require(_loanableAmount >= minimalLoanableAmount, "Amount is too small");
+        require(_loanableAmount <= maximalLoanableAmount, "Amount is too large");
 
         usdt.safeTransferFrom(msg.sender, address(this), _loanableAmount);
 
@@ -140,8 +142,8 @@ contract MinterLoans is IMinterLoans, Ownable {
 
         usdt.transfer(lends[_lendId].lender, lends[_lendId].leftAmount);
         lends[_lendId].leftAmount = 0;
-
         removeLend(_lendId);
+        emit Withdraw(_lendId);
     }
 
     function liquidate(uint256 _loanId) checkActualPrice override external {

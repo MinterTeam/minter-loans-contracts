@@ -7,6 +7,7 @@ interface IMinterLoans {
     event NewLend(address indexed lender, uint256 id, uint256 tokenAmount);
     event Repay(uint256 indexed loanId);
     event Liquidation(uint256 indexed loanId);
+    event Withdraw(uint256 indexed lendId);
     event NewPrice(uint256 price);
 
     // borrower actions
