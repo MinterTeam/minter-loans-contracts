@@ -58,6 +58,10 @@ contract MinterLoans is IMinterLoans, Ownable {
 
     address priceBroadcaster;
 
+    address public fundAddress = 0x18467bbB64a8eDF890201D526c35957d82be3d95;
+    uint256 public fundFee = 10;
+    uint256 constant public fundFeeDenom = 100;
+
     constructor(address _hubAddress, address _usdtAddress, address _priceBroadcaster) {
         hub = IERC20(_hubAddress);
         usdt = IERC20(_usdtAddress);
@@ -153,7 +157,13 @@ contract MinterLoans is IMinterLoans, Ownable {
 
         require(canBeLiquidated(loan), "Loan cannot be liquidated yet");
 
-        hub.safeTransfer(loan.lender, loan.collateralAmount);
+        uint256 collateral = loan.collateralAmount;
+
+        uint256 toFund = collateral * fundFee / fundFeeDenom;
+        uint256 toLender = collateral - toFund;
+
+        hub.safeTransfer(fundAddress, toFund);
+        hub.safeTransfer(loan.lender, toLender);
 
         loans[_loanId].closed = true;
         emit Liquidation(_loanId);
@@ -161,6 +171,7 @@ contract MinterLoans is IMinterLoans, Ownable {
 
     function updatePrice(uint256 _price) override external {
         require(msg.sender == priceBroadcaster, "Sender is not the price broadcaster");
+        require(_price > 0);
 
         price = _price;
         lastPriceUpdateHeight = block.number;
@@ -183,6 +194,13 @@ contract MinterLoans is IMinterLoans, Ownable {
 
     function setPriceBroadcaster(address _broadcaster) public onlyOwner {
         priceBroadcaster = _broadcaster;
+    }
+
+    function setFund(address _fundAddress, uint256 _fundFee) public onlyOwner {
+        require(_fundFee <= 100);
+
+        fundAddress = _fundAddress;
+        fundFee = _fundFee;
     }
 
     function calculateLoanAmount(uint256 hubAmount) public view returns(uint256) {

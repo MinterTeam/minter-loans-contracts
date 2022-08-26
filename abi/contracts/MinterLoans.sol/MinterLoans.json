@@ -320,6 +320,45 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "fundAddress",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "fundFee",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "fundFeeDenom",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -590,6 +629,24 @@
       }
     ],
     "name": "repay",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_fundAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_fundFee",
+        "type": "uint256"
+      }
+    ],
+    "name": "setFund",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
