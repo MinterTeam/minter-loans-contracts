@@ -139,6 +139,8 @@ contract MinterLoans is IMinterLoans, Ownable {
 
         lends.push(Lend(msg.sender, _loanableAmount, _loanableAmount, lendsTail, 0));
         lendsTail = lends.length - 1;
+
+        emit NewLend(msg.sender, lends.length - 1, _loanableAmount);
     }
 
     function withdraw(uint256 _lendId) override external {
@@ -230,8 +232,17 @@ contract MinterLoans is IMinterLoans, Ownable {
         return loan.collateralAmount * rateDenom / neededCollateral < minCollateralRate;
     }
 
-    function getLoan(uint256 _id) override external view returns(address borrower, address lender, uint256 collateralAmount, uint256 borrowedAmount, uint256 borrowingTime, bool closed) {
-        return (loans[_id].borrower, loans[_id].lender, loans[_id].collateralAmount, loans[_id].borrowedAmount, loans[_id].borrowingTime, loans[_id].closed);
+    function getLoan(uint256 _id) override external view returns(address borrower, address lender, uint256 collateralAmount, uint256 borrowedAmount, uint256 borrowingTime, bool closed, uint256 amountToRepay, bool mayBeLiquidated) {
+        Loan memory loan = loans[_id];
+
+        borrower = loan.borrower;
+        lender = loan.lender;
+        collateralAmount = loan.collateralAmount;
+        borrowedAmount = loan.borrowedAmount;
+        closed = loan.closed;
+        amountToRepay = calculateRepayAmount(loan);
+        mayBeLiquidated = canBeLiquidated(loan);
+        borrowingTime = loan.borrowingTime;
     }
 
     function getLend(uint256 _id) override external view returns(address lender, uint256 initialAmount, uint256 leftAmount) {

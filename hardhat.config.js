@@ -15,6 +15,11 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 // You need to export an object to set up your config
 // Go to https://hardhat.org/config/ to learn more
 
+let bscAccounts = [];
+if(process.env.BSC_PRIVATE_KEY) {
+  bscAccounts.push(`${process.env.BSC_PRIVATE_KEY}`)
+}
+
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
@@ -24,4 +29,15 @@ module.exports = {
     path: './abi',
     runOnCompile: true
   },
+  networks: {
+    bscTestnet: {
+      url: `https://data-seed-prebsc-1-s1.binance.org:8545/`,
+      accounts: bscAccounts,
+    }
+  },
+  etherscan: {
+    apiKey: {
+      bscTestnet: process.env.BSC_SCAN_API_KEY,
+    }
+  }
 };

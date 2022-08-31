@@ -23,6 +23,6 @@ interface IMinterLoans {
     function updatePrice(uint256 _price) external;
 
     // getters
-    function getLoan(uint256 id) external view returns(address borrower, address lender, uint256 collateralAmount, uint256 borrowedAmount, uint256 borrowingTime, bool closed);
+    function getLoan(uint256 id) external view returns(address borrower, address lender, uint256 collateralAmount, uint256 borrowedAmount, uint256 borrowingTime, bool closed, uint256 amountToRepay, bool mayBeLiquidated);
     function getLend(uint256 id) external view returns(address lender, uint256 initialAmount, uint256 leftAmount);
 }

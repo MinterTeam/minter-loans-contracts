@@ -25,6 +25,16 @@ async function main() {
     await (await minterLoans.updatePrice(100000)).wait();
 
     console.log("MinterLoans deployed to:", minterLoans.address);
+
+    if (process.env.BSC_SCAN_API_KEY) {
+        await minterLoans.deployTransaction.wait(10);
+
+        await hre.run("verify:verify", {
+            address: minterLoans.address,
+            constructorArguments: [hub.address, usdt.address, (await ethers.getSigners())[0].address],
+            contract: "contracts/MinterLoans.sol:MinterLoans"
+        });
+    }
 }
 
 // We recommend this pattern to be able to use async/await everywhere

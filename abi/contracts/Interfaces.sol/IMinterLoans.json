@@ -194,6 +194,16 @@
         "internalType": "bool",
         "name": "closed",
         "type": "bool"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amountToRepay",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "mayBeLiquidated",
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
