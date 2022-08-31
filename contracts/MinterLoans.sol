@@ -104,7 +104,7 @@ contract MinterLoans is IMinterLoans, Ownable {
             }
 
             if (currentLendId == lendsTail) {
-                hub.safeTransfer(msg.sender, currentCollateralAmount);
+                hub.safeTransfer(msg.sender, collateralLeft);
                 break;
             }
 

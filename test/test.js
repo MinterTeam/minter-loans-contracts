@@ -93,4 +93,42 @@ describe("MinterLoans", function () {
     // todo: remove first lend
     // todo: remove last lend
   });
+
+  it("Should return correct amount of HUB if there is not enough USDT", async function () {
+    const signers = await ethers.getSigners();
+    const priceBroadcaster = signers[0];
+    const borrower = signers[1];
+    const lender = signers[2];
+
+    const HUB = await ethers.getContractFactory("TestERC20");
+    const hub = await HUB.deploy("HUB");
+    await hub.deployed();
+
+    await (await hub.transfer(borrower.address, toWei("1000000"))).wait();
+
+    const USDT = await ethers.getContractFactory("TestERC20");
+    const usdt = await USDT.deploy("USDT");
+    await usdt.deployed();
+
+    await (await usdt.transfer(lender.address, toWei("1000000"))).wait();
+
+    const MinterLoans = await ethers.getContractFactory("MinterLoans");
+    const minterLoans = await MinterLoans.deploy(hub.address, usdt.address, priceBroadcaster.address);
+    await minterLoans.deployed();
+
+    await (await minterLoans.connect(priceBroadcaster).updatePrice(100 * 1e4)).wait();
+
+    await (await hub.connect(borrower).approve(minterLoans.address, toWei("1000000"))).wait();
+    await (await usdt.connect(lender).approve(minterLoans.address, toWei("1000000"))).wait();
+
+    // lend
+    await (await minterLoans.connect(lender).lend(toWei("1000"))).wait();
+
+    // borrow
+    let beforeHUB = await hub.balanceOf(borrower.address);
+    await (await minterLoans.connect(borrower).borrow(toWei("250"))).wait();
+    let diff = beforeHUB.sub(await hub.balanceOf(borrower.address));
+
+    expect(diff).to.equal(toWei("20"));
+  });
 });
