@@ -33,11 +33,17 @@ module.exports = {
     bscTestnet: {
       url: `https://data-seed-prebsc-1-s1.binance.org:8545/`,
       accounts: bscAccounts,
+    },
+    bsc: {
+      url: `https://bsc-dataseed1.binance.org/`,
+      accounts: bscAccounts,
+      gasPrice: 5000000000,
     }
   },
   etherscan: {
     apiKey: {
       bscTestnet: process.env.BSC_SCAN_API_KEY,
+      bsc: process.env.BSC_SCAN_API_KEY,
     }
   }
 };
