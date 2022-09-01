@@ -45,7 +45,7 @@ contract MinterLoans is IMinterLoans, Ownable {
     uint256 constant public priceDenom = 10000;
     uint256 constant public priceTrustWindowBlocks = 1000;
 
-    uint256 constant public minimalLoanableAmount = 100 ether;
+    uint256 constant public minimalLoanableAmount = 1 ether;
     uint256 constant public maximalLoanableAmount = 10000 ether;
 
     uint256 constant public minCollateralRate = 75;
