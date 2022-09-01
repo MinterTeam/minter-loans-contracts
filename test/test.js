@@ -205,9 +205,11 @@ describe("MinterLoans", function () {
       for (; ;) {
         let lend = await minterLoans.lends(current);
 
-        if (!lend.dropped) {
-          list.push(fromWei(String(lend.initialAmount)))
+        if (lend.dropped) {
+          return list;
         }
+
+        list.push(fromWei(String(lend.initialAmount)))
 
         if (current === tail) {
           break;
@@ -234,6 +236,22 @@ describe("MinterLoans", function () {
     expect(list).to.eql(['300'])
 
     await (await minterLoans.connect(lender).withdraw(2)).wait();
+    list = await getLendsList();
+    expect(list).to.eql([])
+
+    await (await minterLoans.connect(lender).lend(toWei("500"))).wait();
+    list = await getLendsList();
+    expect(list).to.eql(['500'])
+
+    await (await minterLoans.connect(lender).lend(toWei("600"))).wait();
+    list = await getLendsList();
+    expect(list).to.eql(['500', '600'])
+
+    await (await minterLoans.connect(lender).withdraw(5)).wait();
+    list = await getLendsList();
+    expect(list).to.eql(['500'])
+
+    await (await minterLoans.connect(lender).withdraw(4)).wait();
     list = await getLendsList();
     expect(list).to.eql([])
   });

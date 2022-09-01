@@ -82,6 +82,9 @@ contract MinterLoans is IMinterLoans, Ownable {
         for(;;) {
             Lend memory currentLend = lends[currentLendId];
 
+            require(!currentLend.dropped);
+            require(currentLend.leftAmount > 0);
+
             uint256 currentLoanAmount = maxLoanAmount - loanedAmount;
             uint256 currentCollateralAmount = collateralLeft;
             if (currentLend.leftAmount < currentLoanAmount) {
@@ -136,6 +139,10 @@ contract MinterLoans is IMinterLoans, Ownable {
 
         if (lends.length != 0) {
             lends[lendsTail].next = lends.length;
+
+            if (lends[lendsHead].dropped) {
+                lendsHead = lends.length;
+            }
         }
 
         lends.push(Lend(msg.sender, _loanableAmount, _loanableAmount, lendsTail, 0, false));
