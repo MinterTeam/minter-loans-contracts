@@ -27,6 +27,7 @@ struct Lend {
 
     uint256 prev;
     uint256 next;
+    bool dropped;
 }
 
 contract MinterLoans is IMinterLoans, Ownable {
@@ -37,9 +38,9 @@ contract MinterLoans is IMinterLoans, Ownable {
 
     Loan[] loans;
 
-    uint256 lendsHead;
-    uint256 lendsTail;
-    Lend[] lends;
+    uint256 public lendsHead;
+    uint256 public lendsTail;
+    Lend[] public lends;
 
     uint256 public price;
     uint256 public lastPriceUpdateHeight;
@@ -70,7 +71,9 @@ contract MinterLoans is IMinterLoans, Ownable {
 
     function borrow(uint256 _collateralAmount) checkActualPrice override external {
         uint256 maxLoanAmount = calculateLoanAmount(_collateralAmount);
+
         require(maxLoanAmount >= minimalLoanableAmount, "Loanable amount is too small");
+        require(lends.length > 0 && !lends[lendsHead].dropped && lends[lendsHead].leftAmount > 0, "No available lends");
 
         hub.safeTransferFrom(msg.sender, address(this), _collateralAmount);
 
@@ -137,7 +140,7 @@ contract MinterLoans is IMinterLoans, Ownable {
             lends[lendsTail].next = lends.length;
         }
 
-        lends.push(Lend(msg.sender, _loanableAmount, _loanableAmount, lendsTail, 0));
+        lends.push(Lend(msg.sender, _loanableAmount, _loanableAmount, lendsTail, 0, false));
         lendsTail = lends.length - 1;
 
         emit NewLend(msg.sender, lends.length - 1, _loanableAmount);
@@ -182,12 +185,14 @@ contract MinterLoans is IMinterLoans, Ownable {
     }
 
     function removeLend(uint256 _id) private {
+        lends[_id].dropped = true;
+
         if (_id == lendsHead) {
             lendsHead = lends[_id].next;
-            lends[lends[_id].next].prev = 0;
+            lends[lends[_id].next].prev = lendsHead;
         } else if (_id == lendsTail) {
             lendsTail = lends[_id].prev;
-            lends[lends[_id].prev].next = 0;
+            lends[lends[_id].prev].next = lendsTail;
         } else {
             lends[lends[_id].next].prev = lends[_id].prev;
             lends[lends[_id].prev].next = lends[_id].next;

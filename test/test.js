@@ -131,4 +131,110 @@ describe("MinterLoans", function () {
 
     expect(diff).to.equal(toWei("20"));
   });
+
+  it("Should fail borrowing from empty pool", async function () {
+    const signers = await ethers.getSigners();
+    const priceBroadcaster = signers[0];
+    const borrower = signers[1];
+    const lender = signers[2];
+
+    const HUB = await ethers.getContractFactory("TestERC20");
+    const hub = await HUB.deploy("HUB");
+    await hub.deployed();
+
+    await (await hub.transfer(borrower.address, toWei("1000000"))).wait();
+
+    const USDT = await ethers.getContractFactory("TestERC20");
+    const usdt = await USDT.deploy("USDT");
+    await usdt.deployed();
+
+    await (await usdt.transfer(lender.address, toWei("1000000"))).wait();
+
+    const MinterLoans = await ethers.getContractFactory("MinterLoans");
+    const minterLoans = await MinterLoans.deploy(hub.address, usdt.address, priceBroadcaster.address);
+    await minterLoans.deployed();
+
+    await (await minterLoans.connect(priceBroadcaster).updatePrice(100 * 1e4)).wait();
+
+    await (await hub.connect(borrower).approve(minterLoans.address, toWei("1000000"))).wait();
+    await (await usdt.connect(lender).approve(minterLoans.address, toWei("1000000"))).wait();
+
+    // borrow
+    await expect(minterLoans.connect(borrower).borrow(toWei("250")))
+        .to.be.revertedWith('No available lends');
+  });
+
+  it("Should handle doubly-linked list properly", async function () {
+    const signers = await ethers.getSigners();
+    const priceBroadcaster = signers[0];
+    const borrower = signers[1];
+    const lender = signers[2];
+
+    const HUB = await ethers.getContractFactory("TestERC20");
+    const hub = await HUB.deploy("HUB");
+    await hub.deployed();
+
+    await (await hub.transfer(borrower.address, toWei("1000000"))).wait();
+
+    const USDT = await ethers.getContractFactory("TestERC20");
+    const usdt = await USDT.deploy("USDT");
+    await usdt.deployed();
+
+    await (await usdt.transfer(lender.address, toWei("1000000"))).wait();
+
+    const MinterLoans = await ethers.getContractFactory("MinterLoans");
+    const minterLoans = await MinterLoans.deploy(hub.address, usdt.address, priceBroadcaster.address);
+    await minterLoans.deployed();
+
+    await (await minterLoans.connect(priceBroadcaster).updatePrice(100 * 1e4)).wait();
+
+    await (await usdt.connect(lender).approve(minterLoans.address, toWei("1000000"))).wait();
+
+    // lend
+    await (await minterLoans.connect(lender).lend(toWei("100"))).wait();
+    await (await minterLoans.connect(lender).lend(toWei("200"))).wait();
+    await (await minterLoans.connect(lender).lend(toWei("300"))).wait();
+    await (await minterLoans.connect(lender).lend(toWei("400"))).wait();
+
+    async function getLendsList() {
+      let head = Number(await minterLoans.lendsHead());
+      let tail = Number(await minterLoans.lendsTail());
+
+      let list = [];
+      let current = head;
+      for (; ;) {
+        let lend = await minterLoans.lends(current);
+
+        if (!lend.dropped) {
+          list.push(fromWei(String(lend.initialAmount)))
+        }
+
+        if (current === tail) {
+          break;
+        }
+
+        current = Number(lend.next);
+      }
+      return list;
+    }
+
+    let list = await getLendsList();
+    expect(list).to.eql([ '100', '200', '300', '400' ])
+
+    await (await minterLoans.connect(lender).withdraw(0)).wait();
+    list = await getLendsList();
+    expect(list).to.eql([ '200', '300', '400' ])
+
+    await (await minterLoans.connect(lender).withdraw(3)).wait();
+    list = await getLendsList();
+    expect(list).to.eql([ '200', '300' ])
+
+    await (await minterLoans.connect(lender).withdraw(1)).wait();
+    list = await getLendsList();
+    expect(list).to.eql(['300'])
+
+    await (await minterLoans.connect(lender).withdraw(2)).wait();
+    list = await getLendsList();
+    expect(list).to.eql([])
+  });
 });
