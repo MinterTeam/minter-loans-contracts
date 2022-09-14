@@ -141,7 +141,7 @@ describe("MinterLoans", function () {
     // borrow
     {
       let beforeUSDT = await usdt.balanceOf(borrower.address);
-      let receipt = await (await minterLoans.connect(borrower).buyWithLeverage(toWei("100"))).wait();
+      let receipt = await (await minterLoans.connect(borrower).buyWithLeverage(toWei("100"), toWei("10"))).wait();
       let {totalLoaned, totalCollateral} = getBorrowReceiptData(receipt);
       let afterUSDT = await usdt.balanceOf(borrower.address);
 

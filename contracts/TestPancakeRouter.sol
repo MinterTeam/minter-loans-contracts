@@ -22,4 +22,11 @@ contract TestPancakeRouter is IPancakeRouter {
         IERC20(path[0]).transferFrom(msg.sender, address(this), amounts[0]);
         IERC20(path[path.length - 1]).transfer(to, amountOut);
     }
+
+    function getAmountsOut(uint amountIn, address[] calldata path) override external view returns (uint[] memory amounts) {
+
+    }
+    function getAmountsIn(uint amountOut, address[] calldata path) override external view returns (uint[] memory amounts) {
+
+    }
 }

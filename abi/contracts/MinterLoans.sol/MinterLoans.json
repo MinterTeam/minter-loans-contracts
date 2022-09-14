@@ -190,6 +190,11 @@
         "internalType": "uint256",
         "name": "_usdtAmount",
         "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_amountOutMin",
+        "type": "uint256"
       }
     ],
     "name": "buyWithLeverage",
@@ -736,6 +741,11 @@
       {
         "internalType": "uint256",
         "name": "_loanId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_amountInMax",
         "type": "uint256"
       }
     ],

@@ -69,7 +69,7 @@ contract MinterLoans is IMinterLoans, Ownable {
         priceBroadcaster = _priceBroadcaster;
     }
 
-    function buyWithLeverage(uint256 _usdtAmount) checkActualPrice override external {
+    function buyWithLeverage(uint256 _usdtAmount, uint256 _amountOutMin) checkActualPrice override external {
         usdt.safeTransferFrom(msg.sender, address(this), _usdtAmount);
 
         uint256 maxLoanAmount = _usdtAmount;
@@ -79,6 +79,7 @@ contract MinterLoans is IMinterLoans, Ownable {
 
         uint256 currentLendId = lendsHead;
         uint256 loanedAmount = 0;
+        uint256 totalCollateral = 0;
 
         for(;;) {
             Lend memory currentLend = lends[currentLendId];
@@ -112,13 +113,16 @@ contract MinterLoans is IMinterLoans, Ownable {
             }
 
             loanedAmount += currentLoanAmount;
+            totalCollateral += currentCollateralAmount;
 
             if (maxLoanAmount == loanedAmount) {
+                require(_amountOutMin <= totalCollateral, "INSUFFICIENT_OUTPUT_AMOUNT");
                 break;
             }
 
             if (currentLendId == lendsTail) {
                 usdt.transfer(msg.sender, _usdtAmount - loanedAmount);
+                require(_amountOutMin <= totalCollateral, "INSUFFICIENT_OUTPUT_AMOUNT");
                 break;
             }
 
@@ -180,6 +184,7 @@ contract MinterLoans is IMinterLoans, Ownable {
     function repay(uint256 _loanId) override external {
         Loan memory loan = loans[_loanId];
         require(!loan.closed, "Loan has been already closed");
+        require(loan.borrower == msg.sender, "Sender is not an borrower of loan");
 
         uint256 amountToRepay = calculateRepayAmount(loan);
 
@@ -190,9 +195,11 @@ contract MinterLoans is IMinterLoans, Ownable {
         emit Repay(_loanId);
     }
 
-    function sellAndRepay(uint256 _loanId) override external {
+    function sellAndRepay(uint256 _loanId, uint256 _amountInMax) override external {
         Loan memory loan = loans[_loanId];
         require(!loan.closed, "Loan has been already closed");
+        require(loan.borrower == msg.sender, "Sender is not an borrower of loan");
+        require(_amountInMax <= loan.collateralAmount);
 
         uint256 amountToRepay = calculateRepayAmount(loan);
 
@@ -200,9 +207,14 @@ contract MinterLoans is IMinterLoans, Ownable {
         path[0] = address(hub);
         path[1] = address(usdt);
 
+        uint256 amountInMax = loan.collateralAmount;
+        if (_amountInMax < amountInMax) {
+            amountInMax = _amountInMax;
+        }
+
         hub.approve(address(pancake), loan.collateralAmount);
         uint[] memory amounts = pancake.swapTokensForExactTokens(
-            amountToRepay, loan.collateralAmount, path, address(this), block.timestamp + 1
+            amountToRepay, amountInMax, path, address(this), block.timestamp + 1
         );
         hub.approve(address(pancake), 0);
 
