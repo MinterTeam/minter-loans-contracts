@@ -13,6 +13,11 @@
       },
       {
         "internalType": "address",
+        "name": "_pancakeAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
         "name": "_priceBroadcaster",
         "type": "address"
       }
@@ -175,6 +180,19 @@
       }
     ],
     "name": "borrow",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_usdtAmount",
+        "type": "uint256"
+      }
+    ],
+    "name": "buyWithLeverage",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

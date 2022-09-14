@@ -18,8 +18,14 @@ async function main() {
 
     console.log("USDT ERC-20 deployed to:", usdt.address);
 
+    const Pancake = await ethers.getContractFactory("TestPancakeRouter");
+    const pancake = await Pancake.deploy();
+    await pancake.deployed();
+
+    console.log("Pancake Router deployed to:", pancake.address);
+
     const MinterLoans = await ethers.getContractFactory("MinterLoans");
-    const minterLoans = await MinterLoans.deploy(hub.address, usdt.address, (await ethers.getSigners())[0].address);
+    const minterLoans = await MinterLoans.deploy(hub.address, usdt.address, pancake.address, (await ethers.getSigners())[0].address);
     await minterLoans.deployed();
 
     await (await minterLoans.updatePrice(100000)).wait();

@@ -6,6 +6,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Interfaces.sol";
 
+import "hardhat/console.sol";
+
 struct Loan {
     address borrower;
     address lender;
@@ -33,6 +35,7 @@ contract MinterLoans is IMinterLoans, Ownable {
 
     IERC20 hub;
     IERC20 usdt;
+    IPancakeRouter pancake;
 
     Loan[] loans;
 
@@ -61,10 +64,68 @@ contract MinterLoans is IMinterLoans, Ownable {
     uint256 public fundFee = 10;
     uint256 constant public fundFeeDenom = 100;
 
-    constructor(address _hubAddress, address _usdtAddress, address _priceBroadcaster) {
+    constructor(address _hubAddress, address _usdtAddress, address _pancakeAddress, address _priceBroadcaster) {
         hub = IERC20(_hubAddress);
         usdt = IERC20(_usdtAddress);
+        pancake = IPancakeRouter(_pancakeAddress);
         priceBroadcaster = _priceBroadcaster;
+    }
+
+    function buyWithLeverage(uint256 _usdtAmount) checkActualPrice override external {
+        usdt.safeTransferFrom(msg.sender, address(this), _usdtAmount);
+
+        uint256 maxLoanAmount = _usdtAmount;
+
+        require(maxLoanAmount >= minimalLoanableAmount, "Loanable amount is too small");
+        require(lends.length > 0 && !lends[lendsHead].dropped && lends[lendsHead].leftAmount > 0, "No available lends");
+
+        uint256 currentLendId = lendsHead;
+        uint256 loanedAmount = 0;
+
+        for(;;) {
+            Lend memory currentLend = lends[currentLendId];
+
+            require(!currentLend.dropped);
+            require(currentLend.leftAmount > 0);
+
+            uint256 currentLoanAmount = maxLoanAmount - loanedAmount;
+            if (currentLend.leftAmount < currentLoanAmount) {
+                currentLoanAmount = currentLend.leftAmount;
+            }
+
+            address[] memory path = new address[](2);
+            path[0] = address(usdt);
+            path[1] = address(hub);
+
+            usdt.approve(address(pancake), currentLoanAmount * 2);
+
+            uint[] memory amounts = pancake.swapExactTokensForTokens(
+                currentLoanAmount * 2, 0, path, address(this), block.timestamp + 1
+            );
+
+            uint256 currentCollateralAmount = amounts[path.length - 1];
+
+            loans.push(Loan(msg.sender, currentLend.lender, currentCollateralAmount, currentLoanAmount, block.timestamp, false));
+            lends[currentLendId].leftAmount -= currentLoanAmount;
+            emit NewLoan(currentLend.lender, msg.sender, loans.length - 1, currentLoanAmount, currentCollateralAmount);
+
+            if (lends[currentLendId].leftAmount == 0) {
+                removeLend(currentLendId);
+            }
+
+            loanedAmount += currentLoanAmount;
+
+            if (maxLoanAmount == loanedAmount) {
+                break;
+            }
+
+            if (currentLendId == lendsTail) {
+                usdt.transfer(msg.sender, _usdtAmount - loanedAmount);
+                break;
+            }
+
+            currentLendId = currentLend.next;
+        }
     }
 
     function borrow(uint256 _collateralAmount) checkActualPrice override external {

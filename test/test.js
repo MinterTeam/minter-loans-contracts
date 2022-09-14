@@ -38,8 +38,12 @@ describe("MinterLoans", function () {
 
     await (await usdt.transfer(lender.address, toWei("1000000"))).wait();
 
+    const Pancake = await ethers.getContractFactory("TestPancakeRouter");
+    const pancake = await Pancake.deploy();
+    await pancake.deployed();
+
     const MinterLoans = await ethers.getContractFactory("MinterLoans");
-    const minterLoans = await MinterLoans.deploy(hub.address, usdt.address, priceBroadcaster.address);
+    const minterLoans = await MinterLoans.deploy(hub.address, usdt.address, pancake.address, priceBroadcaster.address);
     await minterLoans.deployed();
 
     await (await minterLoans.connect(priceBroadcaster).updatePrice(1000000)).wait();
@@ -94,6 +98,76 @@ describe("MinterLoans", function () {
     // todo: remove last lend
   });
 
+  it("Should buy with leverage and repay", async function () {
+    const signers = await ethers.getSigners();
+    const priceBroadcaster = signers[0];
+    const borrower = signers[1];
+    const lender = signers[2];
+
+    const HUB = await ethers.getContractFactory("TestERC20");
+    const hub = await HUB.deploy("HUB");
+    await hub.deployed();
+
+    await (await hub.transfer(borrower.address, toWei("1000000"))).wait();
+
+    const USDT = await ethers.getContractFactory("TestERC20");
+    const usdt = await USDT.deploy("USDT");
+    await usdt.deployed();
+
+    await (await usdt.transfer(lender.address, toWei("1000000"))).wait();
+    await (await usdt.transfer(borrower.address, toWei("1000000"))).wait();
+
+    const Pancake = await ethers.getContractFactory("TestPancakeRouter");
+    const pancake = await Pancake.deploy();
+    await pancake.deployed();
+
+    await (await hub.transfer(pancake.address, toWei("1000000"))).wait();
+
+    const MinterLoans = await ethers.getContractFactory("MinterLoans");
+    const minterLoans = await MinterLoans.deploy(hub.address, usdt.address, pancake.address, priceBroadcaster.address);
+    await minterLoans.deployed();
+
+    await (await minterLoans.connect(priceBroadcaster).updatePrice(1000000)).wait();
+
+    await (await usdt.connect(borrower).approve(minterLoans.address, toWei("1000000"))).wait();
+    await (await usdt.connect(lender).approve(minterLoans.address, toWei("1000000"))).wait();
+
+    // lend
+    {
+      await (await minterLoans.connect(lender).lend(toWei("50"))).wait();
+      await (await minterLoans.connect(lender).lend(toWei("100"))).wait();
+    }
+
+    // borrow
+    {
+      let beforeUSDT = await usdt.balanceOf(borrower.address);
+      let receipt = await (await minterLoans.connect(borrower).buyWithLeverage(toWei("100"))).wait();
+      let {totalLoaned, totalCollateral} = getBorrowReceiptData(receipt);
+      let afterUSDT = await usdt.balanceOf(borrower.address);
+
+      console.log("Balance diff", fromWei(afterUSDT.sub(beforeUSDT).toString()), "USDT");
+
+      console.log("Loaned", fromWei(totalLoaned), "USDT");
+      console.log("Collateral", fromWei(totalCollateral), "HUB");
+    }
+
+    // repay
+    {
+      await (await usdt.transfer(borrower.address, toWei("100"))).wait();
+      await (await usdt.connect(borrower).approve(minterLoans.address, toWei("1000000"))).wait();
+
+      let beforeUSDT = await usdt.balanceOf(borrower.address);
+      let beforeHUB = await hub.balanceOf(borrower.address);
+      await (await minterLoans.connect(borrower).repay(0)).wait();
+      await (await minterLoans.connect(borrower).repay(1)).wait();
+      let afterHUB = await hub.balanceOf(borrower.address);
+      let afterUSDT = await usdt.balanceOf(borrower.address);
+
+      console.log("Repaid", fromWei(beforeUSDT.sub(afterUSDT).toString()), "USDT");
+      console.log("Got", fromWei(afterHUB.sub(beforeHUB).toString()), "HUB");
+    }
+  });
+
   it("Should return correct amount of HUB if there is not enough USDT", async function () {
     const signers = await ethers.getSigners();
     const priceBroadcaster = signers[0];
@@ -112,8 +186,12 @@ describe("MinterLoans", function () {
 
     await (await usdt.transfer(lender.address, toWei("1000000"))).wait();
 
+    const Pancake = await ethers.getContractFactory("TestPancakeRouter");
+    const pancake = await Pancake.deploy();
+    await pancake.deployed();
+
     const MinterLoans = await ethers.getContractFactory("MinterLoans");
-    const minterLoans = await MinterLoans.deploy(hub.address, usdt.address, priceBroadcaster.address);
+    const minterLoans = await MinterLoans.deploy(hub.address, usdt.address, pancake.address, priceBroadcaster.address);
     await minterLoans.deployed();
 
     await (await minterLoans.connect(priceBroadcaster).updatePrice(100 * 1e4)).wait();
@@ -150,8 +228,12 @@ describe("MinterLoans", function () {
 
     await (await usdt.transfer(lender.address, toWei("1000000"))).wait();
 
+    const Pancake = await ethers.getContractFactory("TestPancakeRouter");
+    const pancake = await Pancake.deploy();
+    await pancake.deployed();
+
     const MinterLoans = await ethers.getContractFactory("MinterLoans");
-    const minterLoans = await MinterLoans.deploy(hub.address, usdt.address, priceBroadcaster.address);
+    const minterLoans = await MinterLoans.deploy(hub.address, usdt.address, pancake.address, priceBroadcaster.address);
     await minterLoans.deployed();
 
     await (await minterLoans.connect(priceBroadcaster).updatePrice(100 * 1e4)).wait();
@@ -182,8 +264,12 @@ describe("MinterLoans", function () {
 
     await (await usdt.transfer(lender.address, toWei("1000000"))).wait();
 
+    const Pancake = await ethers.getContractFactory("TestPancakeRouter");
+    const pancake = await Pancake.deploy();
+    await pancake.deployed();
+
     const MinterLoans = await ethers.getContractFactory("MinterLoans");
-    const minterLoans = await MinterLoans.deploy(hub.address, usdt.address, priceBroadcaster.address);
+    const minterLoans = await MinterLoans.deploy(hub.address, usdt.address, pancake.address, priceBroadcaster.address);
     await minterLoans.deployed();
 
     await (await minterLoans.connect(priceBroadcaster).updatePrice(100 * 1e4)).wait();

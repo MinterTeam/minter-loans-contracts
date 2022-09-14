@@ -12,6 +12,7 @@ interface IMinterLoans {
 
     // borrower actions
     function borrow(uint256 _collateralAmount) external;
+    function buyWithLeverage(uint256 _usdtAmount) external;
     function repay(uint256 _loanId) external;
 
     // lender actions
@@ -25,4 +26,8 @@ interface IMinterLoans {
     // getters
     function getLoan(uint256 id) external view returns(address borrower, address lender, uint256 collateralAmount, uint256 borrowedAmount, uint256 borrowingTime, bool closed, uint256 amountToRepay, bool mayBeLiquidated);
     function getLend(uint256 id) external view returns(address lender, uint256 initialAmount, uint256 leftAmount);
+}
+
+interface IPancakeRouter {
+    function swapExactTokensForTokens(uint256 amountIn, uint256 amountOutMin, address[] memory path, address to, uint256 deadline) external returns (uint[] memory amounts);
 }
