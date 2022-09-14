@@ -6,8 +6,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Interfaces.sol";
 
-import "hardhat/console.sol";
-
 struct Loan {
     address borrower;
     address lender;
@@ -189,6 +187,30 @@ contract MinterLoans is IMinterLoans, Ownable {
         hub.safeTransfer(msg.sender, loan.collateralAmount);
 
         loans[_loanId].closed = true;
+        emit Repay(_loanId);
+    }
+
+    function sellAndRepay(uint256 _loanId) override external {
+        Loan memory loan = loans[_loanId];
+        require(!loan.closed, "Loan has been already closed");
+
+        uint256 amountToRepay = calculateRepayAmount(loan);
+
+        address[] memory path = new address[](2);
+        path[0] = address(hub);
+        path[1] = address(usdt);
+
+        hub.approve(address(pancake), loan.collateralAmount);
+        uint[] memory amounts = pancake.swapTokensForExactTokens(
+            amountToRepay, loan.collateralAmount, path, address(this), block.timestamp + 1
+        );
+        hub.approve(address(pancake), 0);
+
+        usdt.safeTransfer(loan.lender, amountToRepay);
+        hub.safeTransfer(msg.sender, loan.collateralAmount - amounts[0]);
+
+        loans[_loanId].closed = true;
+
         emit Repay(_loanId);
     }
 
