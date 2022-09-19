@@ -71,6 +71,10 @@ contract MinterLoans is IMinterLoans, Ownable {
         priceBroadcaster = _priceBroadcaster;
     }
 
+    receive() external payable {
+        assert(msg.sender == address(wbnb));
+    }
+
     function buyWithLeverage(uint256 _coin1Amount, uint256 _amountOutMin) override external {
         coin1.safeTransferFrom(msg.sender, address(this), _coin1Amount);
         _buyWithLeverage(_coin1Amount, _amountOutMin);
@@ -205,7 +209,7 @@ contract MinterLoans is IMinterLoans, Ownable {
     function repay(uint256 _loanId) override external {
         Loan memory loan = loans[_loanId];
         require(!loan.closed, "Loan has been already closed");
-        require(loan.borrower == msg.sender, "Sender is not an borrower of loan");
+        require(loan.borrower == msg.sender, "Sender is not a borrower of loan");
 
         uint256 amountToRepay = calculateRepayAmount(loan);
 
@@ -219,7 +223,7 @@ contract MinterLoans is IMinterLoans, Ownable {
     function repayBNB(uint256 _loanId) payable override external {
         Loan memory loan = loans[_loanId];
         require(!loan.closed, "Loan has been already closed");
-        require(loan.borrower == msg.sender, "Sender is not an borrower of loan");
+        require(loan.borrower == msg.sender, "Sender is not a borrower of loan");
 
         uint256 amountToRepay = calculateRepayAmount(loan);
 
@@ -233,7 +237,7 @@ contract MinterLoans is IMinterLoans, Ownable {
     function sellAndRepay(uint256 _loanId, uint256 _amountInMax) override external {
         Loan memory loan = loans[_loanId];
         require(!loan.closed, "Loan has been already closed");
-        require(loan.borrower == msg.sender, "Sender is not an borrower of loan");
+        require(loan.borrower == msg.sender, "Sender is not a borrower of loan");
         require(_amountInMax <= loan.collateralAmount);
 
         uint256 amountToRepay = calculateRepayAmount(loan);
