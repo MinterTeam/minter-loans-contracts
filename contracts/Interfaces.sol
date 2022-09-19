@@ -12,12 +12,15 @@ interface IMinterLoans {
 
     // borrower actions
     function borrow(uint256 _collateralAmount) external;
+    function buyWithLeverageBNB(uint256 _amountOutMin) payable external;
     function buyWithLeverage(uint256 _usdtAmount, uint256 _amountOutMin) external;
     function repay(uint256 _loanId) external;
+    function repayBNB(uint256 _loanId) payable external;
     function sellAndRepay(uint256 _loanId, uint256 _amountInMax) external;
 
     // lender actions
     function lend(uint256 _loanableAmount) external;
+    function lendBNB() payable external;
     function withdraw(uint256 _lendId) external;
     function liquidate(uint256 _loanId) external;
 
@@ -35,4 +38,9 @@ interface IPancakeRouter {
 
     function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts);
     function getAmountsIn(uint amountOut, address[] calldata path) external view returns (uint[] memory amounts);
+}
+
+interface IWBNB {
+    function deposit() external payable;
+    function withdraw(uint wad) external;
 }

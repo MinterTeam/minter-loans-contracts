@@ -6,8 +6,10 @@
 const {ethers} = require("hardhat");
 
 async function main() {
+    console.log("Deploy from address", (await ethers.getSigners())[0].address);
+
     const MinterLoans = await ethers.getContractFactory("MinterLoans");
-    const minterLoans = await MinterLoans.deploy("0x8aC0A467f878f3561D309cF9B0994b0530b0a9d2", "0x55d398326f99059fF775485246999027B3197955", "0x10ED43C718714eb63d5aA57B78B54704E256024E", (await ethers.getSigners())[0].address);
+    const minterLoans = await MinterLoans.deploy("0x84B748b6a51548f3C1a59DAF4f36dF47Ca7fB4B5", "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c", "0x10ED43C718714eb63d5aA57B78B54704E256024E", (await ethers.getSigners())[0].address);
     await minterLoans.deployed();
 
     console.log("MinterLoans deployed to:", minterLoans.address);
@@ -17,7 +19,7 @@ async function main() {
 
         await hre.run("verify:verify", {
             address: minterLoans.address,
-            constructorArguments: ["0x8aC0A467f878f3561D309cF9B0994b0530b0a9d2", "0x55d398326f99059fF775485246999027B3197955", "0x10ED43C718714eb63d5aA57B78B54704E256024E", (await ethers.getSigners())[0].address],
+            constructorArguments: ["0x84B748b6a51548f3C1a59DAF4f36dF47Ca7fB4B5", "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c", "0x10ED43C718714eb63d5aA57B78B54704E256024E", (await ethers.getSigners())[0].address],
             contract: "contracts/MinterLoans.sol:MinterLoans"
         });
     }

@@ -31,9 +31,11 @@ struct Lend {
 contract MinterLoans is IMinterLoans, Ownable {
     using SafeERC20 for IERC20;
 
-    IERC20 hub;
-    IERC20 usdt;
+    IERC20 coin0;
+    IERC20 coin1;
     IPancakeRouter pancake;
+
+    IWBNB wbnb = IWBNB(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
 
     Loan[] loans;
 
@@ -44,10 +46,10 @@ contract MinterLoans is IMinterLoans, Ownable {
     uint256 public price;
     uint256 public lastPriceUpdateHeight;
     uint256 constant public priceDenom = 10000;
-    uint256 constant public priceTrustWindowBlocks = 1000;
+    uint256 constant public priceTrustWindowBlocks = 100000; // todo
 
-    uint256 constant public minimalLoanableAmount = 1 ether;
-    uint256 constant public maximalLoanableAmount = 10000 ether;
+    uint256 constant public minimalLoanableAmount = 0.001 ether;
+    uint256 constant public maximalLoanableAmount = 100 ether;
 
     uint256 constant public minCollateralRate = 75;
     uint256 constant public baseCollateralRate = 200;
@@ -62,17 +64,25 @@ contract MinterLoans is IMinterLoans, Ownable {
     uint256 public fundFee = 10;
     uint256 constant public fundFeeDenom = 100;
 
-    constructor(address _hubAddress, address _usdtAddress, address _pancakeAddress, address _priceBroadcaster) {
-        hub = IERC20(_hubAddress);
-        usdt = IERC20(_usdtAddress);
+    constructor(address _coin0Address, address _coin1Address, address _pancakeAddress, address _priceBroadcaster) {
+        coin0 = IERC20(_coin0Address);
+        coin1 = IERC20(_coin1Address);
         pancake = IPancakeRouter(_pancakeAddress);
         priceBroadcaster = _priceBroadcaster;
     }
 
-    function buyWithLeverage(uint256 _usdtAmount, uint256 _amountOutMin) checkActualPrice override external {
-        usdt.safeTransferFrom(msg.sender, address(this), _usdtAmount);
+    function buyWithLeverage(uint256 _coin1Amount, uint256 _amountOutMin) override external {
+        coin1.safeTransferFrom(msg.sender, address(this), _coin1Amount);
+        _buyWithLeverage(_coin1Amount, _amountOutMin);
+    }
 
-        uint256 maxLoanAmount = _usdtAmount;
+    function buyWithLeverageBNB(uint256 _amountOutMin) payable override external {
+        wbnb.deposit{value: msg.value}();
+        _buyWithLeverage(msg.value, _amountOutMin);
+    }
+
+    function _buyWithLeverage(uint256 _coin1Amount, uint256 _amountOutMin) checkActualPrice internal {
+        uint256 maxLoanAmount = _coin1Amount;
 
         require(maxLoanAmount >= minimalLoanableAmount, "Loanable amount is too small");
         require(lends.length > 0 && !lends[lendsHead].dropped && lends[lendsHead].leftAmount > 0, "No available lends");
@@ -93,10 +103,10 @@ contract MinterLoans is IMinterLoans, Ownable {
             }
 
             address[] memory path = new address[](2);
-            path[0] = address(usdt);
-            path[1] = address(hub);
+            path[0] = address(coin1);
+            path[1] = address(coin0);
 
-            usdt.approve(address(pancake), currentLoanAmount * 2);
+            coin1.approve(address(pancake), currentLoanAmount * 2);
 
             uint[] memory amounts = pancake.swapExactTokensForTokens(
                 currentLoanAmount * 2, 0, path, address(this), block.timestamp + 1
@@ -121,7 +131,13 @@ contract MinterLoans is IMinterLoans, Ownable {
             }
 
             if (currentLendId == lendsTail) {
-                usdt.transfer(msg.sender, _usdtAmount - loanedAmount);
+                if (address(coin1) == address(wbnb)) {
+                    wbnb.withdraw(_coin1Amount - loanedAmount);
+                    payable(msg.sender).transfer(_coin1Amount - loanedAmount);
+                } else {
+                    coin1.transfer(msg.sender, _coin1Amount - loanedAmount);
+                }
+
                 require(_amountOutMin <= totalCollateral, "INSUFFICIENT_OUTPUT_AMOUNT");
                 break;
             }
@@ -136,7 +152,7 @@ contract MinterLoans is IMinterLoans, Ownable {
         require(maxLoanAmount >= minimalLoanableAmount, "Loanable amount is too small");
         require(lends.length > 0 && !lends[lendsHead].dropped && lends[lendsHead].leftAmount > 0, "No available lends");
 
-        hub.safeTransferFrom(msg.sender, address(this), _collateralAmount);
+        coin0.safeTransferFrom(msg.sender, address(this), _collateralAmount);
 
         uint256 currentLendId = lendsHead;
         uint256 loanedAmount = 0;
@@ -171,14 +187,19 @@ contract MinterLoans is IMinterLoans, Ownable {
             }
 
             if (currentLendId == lendsTail) {
-                hub.safeTransfer(msg.sender, collateralLeft);
+                coin0.safeTransfer(msg.sender, collateralLeft);
                 break;
             }
 
             currentLendId = currentLend.next;
         }
 
-        usdt.safeTransfer(msg.sender, loanedAmount);
+        if (address(coin1) == address(wbnb)) {
+            wbnb.withdraw(loanedAmount);
+            payable(msg.sender).transfer(loanedAmount);
+        } else {
+            coin1.transfer(msg.sender, loanedAmount);
+        }
     }
 
     function repay(uint256 _loanId) override external {
@@ -188,8 +209,22 @@ contract MinterLoans is IMinterLoans, Ownable {
 
         uint256 amountToRepay = calculateRepayAmount(loan);
 
-        usdt.safeTransferFrom(msg.sender, loan.lender, amountToRepay);
-        hub.safeTransfer(msg.sender, loan.collateralAmount);
+        coin1.safeTransferFrom(msg.sender, loan.lender, amountToRepay);
+        coin0.safeTransfer(msg.sender, loan.collateralAmount);
+
+        loans[_loanId].closed = true;
+        emit Repay(_loanId);
+    }
+
+    function repayBNB(uint256 _loanId) payable override external {
+        Loan memory loan = loans[_loanId];
+        require(!loan.closed, "Loan has been already closed");
+        require(loan.borrower == msg.sender, "Sender is not an borrower of loan");
+
+        uint256 amountToRepay = calculateRepayAmount(loan);
+
+        payable(loan.lender).transfer(amountToRepay);
+        coin0.safeTransfer(msg.sender, loan.collateralAmount);
 
         loans[_loanId].closed = true;
         emit Repay(_loanId);
@@ -204,33 +239,47 @@ contract MinterLoans is IMinterLoans, Ownable {
         uint256 amountToRepay = calculateRepayAmount(loan);
 
         address[] memory path = new address[](2);
-        path[0] = address(hub);
-        path[1] = address(usdt);
+        path[0] = address(coin0);
+        path[1] = address(coin1);
 
         uint256 amountInMax = loan.collateralAmount;
         if (_amountInMax < amountInMax) {
             amountInMax = _amountInMax;
         }
 
-        hub.approve(address(pancake), loan.collateralAmount);
+        coin0.approve(address(pancake), loan.collateralAmount);
         uint[] memory amounts = pancake.swapTokensForExactTokens(
             amountToRepay, amountInMax, path, address(this), block.timestamp + 1
         );
-        hub.approve(address(pancake), 0);
+        coin0.approve(address(pancake), 0);
 
-        usdt.safeTransfer(loan.lender, amountToRepay);
-        hub.safeTransfer(msg.sender, loan.collateralAmount - amounts[0]);
+        if (address(coin1) == address(wbnb)) {
+            wbnb.withdraw(amountToRepay);
+            payable(loan.lender).transfer(amountToRepay);
+        } else {
+            coin1.transfer(loan.lender, amountToRepay);
+        }
+
+        coin0.safeTransfer(msg.sender, loan.collateralAmount - amounts[0]);
 
         loans[_loanId].closed = true;
 
         emit Repay(_loanId);
     }
 
+    function lendBNB() payable override external {
+        wbnb.deposit{value: msg.value}();
+        _lend(msg.value);
+    }
+
     function lend(uint256 _loanableAmount) override external {
+        coin1.safeTransferFrom(msg.sender, address(this), _loanableAmount);
+        _lend(_loanableAmount);
+    }
+
+    function _lend(uint256 _loanableAmount) internal {
         require(_loanableAmount >= minimalLoanableAmount, "Amount is too small");
         require(_loanableAmount <= maximalLoanableAmount, "Amount is too large");
-
-        usdt.safeTransferFrom(msg.sender, address(this), _loanableAmount);
 
         if (lends.length != 0) {
             lends[lendsTail].next = lends.length;
@@ -249,7 +298,13 @@ contract MinterLoans is IMinterLoans, Ownable {
     function withdraw(uint256 _lendId) override external {
         require(lends[_lendId].lender == msg.sender, "Sender is not an owner of lend");
 
-        usdt.transfer(lends[_lendId].lender, lends[_lendId].leftAmount);
+        if (address(coin1) == address(wbnb)) {
+            wbnb.withdraw(lends[_lendId].leftAmount);
+            payable(lends[_lendId].lender).transfer(lends[_lendId].leftAmount);
+        } else {
+            coin1.transfer(lends[_lendId].lender, lends[_lendId].leftAmount);
+        }
+
         lends[_lendId].leftAmount = 0;
         removeLend(_lendId);
         emit Withdraw(_lendId);
@@ -267,8 +322,8 @@ contract MinterLoans is IMinterLoans, Ownable {
         uint256 toFund = collateral * fundFee / fundFeeDenom;
         uint256 toLender = collateral - toFund;
 
-        hub.safeTransfer(fundAddress, toFund);
-        hub.safeTransfer(loan.lender, toLender);
+        coin0.safeTransfer(fundAddress, toFund);
+        coin0.safeTransfer(loan.lender, toLender);
 
         loans[_loanId].closed = true;
         emit Liquidation(_loanId);
@@ -310,12 +365,12 @@ contract MinterLoans is IMinterLoans, Ownable {
         fundFee = _fundFee;
     }
 
-    function calculateLoanAmount(uint256 hubAmount) public view returns(uint256) {
-        return hubAmount * price * rateDenom / baseCollateralRate / priceDenom;
+    function calculateLoanAmount(uint256 coin0Amount) public view returns(uint256) {
+        return coin0Amount * price * rateDenom / baseCollateralRate / priceDenom;
     }
 
-    function calculateCollateralAmount(uint256 usdtAmount) public view returns(uint256) {
-        return usdtAmount * priceDenom * baseCollateralRate / price / rateDenom;
+    function calculateCollateralAmount(uint256 coin1Amount) public view returns(uint256) {
+        return coin1Amount * priceDenom * baseCollateralRate / price / rateDenom;
     }
 
     function calculateRepayAmount(Loan memory loan) public view returns(uint256) {
