@@ -43,7 +43,7 @@ module.exports = {
       accounts: bscAccounts,
     },
     bsc: {
-      url: `https://bsc-dataseed1.binance.org/`,
+      url: `https://bscrpc.com`,
       accounts: bscAccounts,
       gasPrice: 5000000000,
     }

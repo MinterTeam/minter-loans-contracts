@@ -25,7 +25,7 @@ async function main() {
     console.log("Pancake Router deployed to:", pancake.address);
 
     const MinterLoans = await ethers.getContractFactory("MinterLoans");
-    const minterLoans = await MinterLoans.deploy(hub.address, usdt.address, pancake.address, (await ethers.getSigners())[0].address);
+    const minterLoans = await MinterLoans.deploy(hub.address, usdt.address, pancake.address);
     await minterLoans.deployed();
 
     await (await minterLoans.updatePrice(100000)).wait();
@@ -37,7 +37,7 @@ async function main() {
 
         await hre.run("verify:verify", {
             address: minterLoans.address,
-            constructorArguments: [hub.address, usdt.address, (await ethers.getSigners())[0].address],
+            constructorArguments: [hub.address, usdt.address, pancake.address],
             contract: "contracts/MinterLoans.sol:MinterLoans"
         });
     }

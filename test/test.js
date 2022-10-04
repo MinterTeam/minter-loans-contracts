@@ -100,7 +100,6 @@ describe("MinterLoans", function () {
 
   it("Should buy with leverage and repay", async function () {
     const signers = await ethers.getSigners();
-    const priceBroadcaster = signers[0];
     const borrower = signers[1];
     const lender = signers[2];
 
@@ -124,7 +123,7 @@ describe("MinterLoans", function () {
     await (await hub.transfer(pancake.address, toWei("1000000"))).wait();
 
     const MinterLoans = await ethers.getContractFactory("MinterLoans");
-    const minterLoans = await MinterLoans.deploy(hub.address, usdt.address, pancake.address, priceBroadcaster.address);
+    const minterLoans = await MinterLoans.deploy(hub.address, usdt.address, pancake.address);
     await minterLoans.deployed();
 
     await (await minterLoans.connect(priceBroadcaster).updatePrice(1000000)).wait();

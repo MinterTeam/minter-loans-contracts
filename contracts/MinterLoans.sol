@@ -43,10 +43,7 @@ contract MinterLoans is IMinterLoans, Ownable {
     uint256 public lendsTail;
     Lend[] public lends;
 
-    uint256 public price;
-    uint256 public lastPriceUpdateHeight;
     uint256 constant public priceDenom = 1e8;
-    uint256 constant public priceTrustWindowBlocks = 100000; // todo
 
     uint256 constant public minimalLoanableAmount = 0.001 ether;
     uint256 constant public maximalLoanableAmount = 100 ether;
@@ -58,17 +55,14 @@ contract MinterLoans is IMinterLoans, Ownable {
     uint256 constant public interestDenom = 100;
     uint256 constant public maxBorrowingPeriod = 365 days;
 
-    address priceBroadcaster;
-
     address public fundAddress = 0x18467bbB64a8eDF890201D526c35957d82be3d95;
     uint256 public fundFee = 10;
     uint256 constant public fundFeeDenom = 100;
 
-    constructor(address _coin0Address, address _coin1Address, address _pancakeAddress, address _priceBroadcaster) {
+    constructor(address _coin0Address, address _coin1Address, address _pancakeAddress) {
         coin0 = IERC20(_coin0Address);
         coin1 = IERC20(_coin1Address);
         pancake = IPancakeRouter(_pancakeAddress);
-        priceBroadcaster = _priceBroadcaster;
     }
 
     receive() external payable {
@@ -85,7 +79,7 @@ contract MinterLoans is IMinterLoans, Ownable {
         _buyWithLeverage(msg.value, _amountOutMin);
     }
 
-    function _buyWithLeverage(uint256 _coin1Amount, uint256 _amountOutMin) checkActualPrice internal {
+    function _buyWithLeverage(uint256 _coin1Amount, uint256 _amountOutMin) internal {
         uint256 maxLoanAmount = _coin1Amount;
 
         require(maxLoanAmount >= minimalLoanableAmount, "Loanable amount is too small");
@@ -150,7 +144,7 @@ contract MinterLoans is IMinterLoans, Ownable {
         }
     }
 
-    function borrow(uint256 _collateralAmount) checkActualPrice override external {
+    function borrow(uint256 _collateralAmount) override external {
         uint256 maxLoanAmount = calculateLoanAmount(_collateralAmount);
 
         require(maxLoanAmount >= minimalLoanableAmount, "Loanable amount is too small");
@@ -314,7 +308,7 @@ contract MinterLoans is IMinterLoans, Ownable {
         emit Withdraw(_lendId);
     }
 
-    function liquidate(uint256 _loanId) checkActualPrice override external {
+    function liquidate(uint256 _loanId) override external {
         Loan memory loan = loans[_loanId];
         require(msg.sender == loan.lender, "Sender is not an owner of the debt");
         require(!loan.closed, "Loan has been already closed");
@@ -333,16 +327,6 @@ contract MinterLoans is IMinterLoans, Ownable {
         emit Liquidation(_loanId);
     }
 
-    function updatePrice(uint256 _price) override external {
-        require(msg.sender == priceBroadcaster, "Sender is not the price broadcaster");
-        require(_price > 0);
-
-        price = _price;
-        lastPriceUpdateHeight = block.number;
-
-        emit NewPrice(price);
-    }
-
     function removeLend(uint256 _id) private {
         lends[_id].dropped = true;
 
@@ -358,10 +342,6 @@ contract MinterLoans is IMinterLoans, Ownable {
         }
     }
 
-    function setPriceBroadcaster(address _broadcaster) public onlyOwner {
-        priceBroadcaster = _broadcaster;
-    }
-
     function setFund(address _fundAddress, uint256 _fundFee) public onlyOwner {
         require(_fundFee <= 100);
 
@@ -370,11 +350,21 @@ contract MinterLoans is IMinterLoans, Ownable {
     }
 
     function calculateLoanAmount(uint256 coin0Amount) public view returns(uint256) {
-        return coin0Amount * price * rateDenom / baseCollateralRate / priceDenom;
+        return coin0Amount * price() * rateDenom / baseCollateralRate / priceDenom;
     }
 
     function calculateCollateralAmount(uint256 coin1Amount) public view returns(uint256) {
-        return coin1Amount * priceDenom * baseCollateralRate / price / rateDenom;
+        return coin1Amount * priceDenom * baseCollateralRate / price() / rateDenom;
+    }
+
+    function price() public view returns(uint256) {
+        address[] memory path = new address[](2);
+        path[0] = address(coin0);
+        path[1] = address(coin1);
+
+        uint[] memory amounts = pancake.getAmountsOut(1 ether, path);
+
+        return amounts[1] * priceDenom / 1 ether;
     }
 
     function calculateRepayAmount(Loan memory loan) public view returns(uint256) {
@@ -411,10 +401,5 @@ contract MinterLoans is IMinterLoans, Ownable {
 
     function getLend(uint256 _id) override external view returns(address lender, uint256 initialAmount, uint256 leftAmount) {
         return (lends[_id].lender, lends[_id].initialAmount, lends[_id].leftAmount);
-    }
-
-    modifier checkActualPrice() {
-        require(block.number - lastPriceUpdateHeight < priceTrustWindowBlocks, "Price was not updated for too long");
-        _;
     }
 }

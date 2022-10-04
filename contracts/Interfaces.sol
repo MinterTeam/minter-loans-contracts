@@ -8,7 +8,6 @@ interface IMinterLoans {
     event Repay(uint256 indexed loanId);
     event Liquidation(uint256 indexed loanId);
     event Withdraw(uint256 indexed lendId);
-    event NewPrice(uint256 price);
 
     // borrower actions
     function borrow(uint256 _collateralAmount) external;
@@ -23,9 +22,6 @@ interface IMinterLoans {
     function lendBNB() payable external;
     function withdraw(uint256 _lendId) external;
     function liquidate(uint256 _loanId) external;
-
-    // system actions
-    function updatePrice(uint256 _price) external;
 
     // getters
     function getLoan(uint256 id) external view returns(address borrower, address lender, uint256 collateralAmount, uint256 borrowedAmount, uint256 borrowingTime, bool closed, uint256 amountToRepay, bool mayBeLiquidated);
